@@ -1,6 +1,4 @@
-FROM python:3.7-slim
-
-EXPOSE 5000
+FROM python:3.7-slim AS compile-image
 
 WORKDIR /app
 
@@ -14,14 +12,25 @@ RUN apt-get update && apt-get install -y \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
+ADD ./requirements.txt /app
+RUN pip3 install --upgrade pip
+RUN --mount=type=cache,target=/root/.cache \
+    pip3 install --user -r requirements.txt
+
 COPY download_weights.sh /app/
 RUN bash download_weights.sh
 
-ADD ./requirements.txt /app
-RUN pip install --upgrade pip
+FROM python:3.7-slim AS build-image
+COPY --from=compile-image /root/.local /root/.local
+COPY --from=compile-image /app/weights /app/weights
+ENV PATH=/root/.local/bin:$PATH
 
-RUN --mount=type=cache,target=/root/.cache \
-    pip3 install -r requirements.txt
+EXPOSE 5000
+WORKDIR /app
+
+
+
+CMD uvicorn fastapi_interface:app --host=0.0.0.0 --port=${PORT}
 
 COPY ./*.py /app/
 COPY ./routers /app/routers
@@ -30,4 +39,3 @@ COPY ./utils /app/utils
 COPY ./static /app/static
 
 ENV PORT 5000
-CMD uvicorn fastapi_interface:app --host=0.0.0.0 --port=${PORT}
