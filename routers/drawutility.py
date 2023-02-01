@@ -32,7 +32,7 @@ _cfg = {
 
 
 
-def auoDrawBbox(image_bgr, bbox_min, bbox_max, line_color, line_width=2):
+def draw_bbox(image_bgr, bbox_min, bbox_max, line_color, line_width=2):
     cv2.rectangle(image_bgr, bbox_min, bbox_max, line_color, line_width)
 
 
@@ -53,7 +53,8 @@ class bboxBase(BaseModel):
 
 
 @router.post("/draw_bbox/")
-def draw_bbox(parameter: bboxBase = Form(...), file: UploadFile = File(...)):
+def web_if_draw_bbox(parameter: bboxBase = Form(...), file: UploadFile = File(...)):
+    global _cfg
     t0 = time.time()
 
     # get image
@@ -82,7 +83,7 @@ def draw_bbox(parameter: bboxBase = Form(...), file: UploadFile = File(...)):
         label = label_list[int(object[5])]
         color = color_list[int(object[5] % len(color_list))]
 
-        auoDrawBbox(cv2_img, (box_xmin, box_ymin), (box_xmax, box_ymax), color, line_width=_cfg['line_width'])
+        draw_bbox(cv2_img, (box_xmin, box_ymin), (box_xmax, box_ymax), color, line_width=_cfg['line_width'])
         od_str = label + '  ' + str(confidence)[:4]
         text2image(cv2_img, (box_xmin, box_ymin), od_str, font_scale=_cfg['label_font_size'],
                    font_color=(255, 255, 255), font_face=cv2.FONT_HERSHEY_DUPLEX,
@@ -93,7 +94,7 @@ def draw_bbox(parameter: bboxBase = Form(...), file: UploadFile = File(...)):
     output_dict = {"img_base64": cv2image_to_base64(cv2_img), 'fps': f_fps}
     return output_dict
 
-    
+
 class polyBase(BaseModel):
     points: list = [[10, 90], [20, 90], [20, 100], [10, 100]]
     color: list = [0, 255, 0]

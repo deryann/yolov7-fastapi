@@ -32,3 +32,13 @@ def text2image(image, xy, label, font_scale=0.5, thickness=1, font_color=(0, 0, 
     cv2.rectangle(image, (_x1, _y1), (_x2, _y2), background_color, cv2.FILLED)  # text background
     cv2.putText(image, label, (_x1, _y1), font_face, font_scale, font_color,
                 thickness, cv2.LINE_AA)
+
+
+def base64_to_cv2image(base64_string):
+    imgdata = base64.b64decode(base64_string)
+    cv2img = cv2.cvtColor(np.array(Image.open(BytesIO(imgdata))), cv2.COLOR_RGB2BGR)
+    return cv2img
+
+def base64_jpg_to_bytes(base64_string):
+    imgdata = base64.b64decode(base64_string)
+    return imgdata

@@ -1,4 +1,5 @@
 import os
+import io
 import time
 import numpy as np
 import traceback
@@ -29,10 +30,6 @@ lock = threading.Lock()
 
 model = None
 device = None
-# conf_thres = 0.25
-# iou_thres = 0.45
-# print('conf_thres', conf_thres)
-# print('iou_thres', iou_thres)
 
 
 class StructureBase(BaseModel):
@@ -113,12 +110,8 @@ def HelloWorld():
     return {"Hello": "World"}
 
 
-@app.post("/od_inference")
-def yolov7_inference( data: StructureBase = Form(...), file: UploadFile = File(...)):
-    # def yolov7_inference(file: bytes = File(...)):
+def _yolov7_inference(image_rgb, data):
     global device, model
-    t0 = time.time()
-    image_rgb = bytes_to_rgbimage(file.file.read())
     imgsize = image_rgb.shape[:2]
     image_rgb = image_rgb[:int(imgsize[0] / 32) * 32, :int(imgsize[1] / 32) * 32]
     image_rgb = np.transpose(image_rgb, (2, 0, 1))
@@ -133,7 +126,16 @@ def yolov7_inference( data: StructureBase = Form(...), file: UploadFile = File(.
         print('image_rgb.shape', image_rgb.shape)
         pred = model(image_rgb)[0]
         pred = non_max_suppression(pred, conf_thres=data.conf_thres, iou_thres=data.iou_thres)[0].cpu().numpy().tolist()
+    return pred, names
 
+
+@app.post("/od_inference")
+def yolov7_inference(data: StructureBase = Form(...), file: UploadFile = File(...)):
+    # def yolov7_inference(file: bytes = File(...)):
+
+    t0 = time.time()
+    image_rgb = bytes_to_rgbimage(file.file.read())
+    pred, names = _yolov7_inference(image_rgb, data)
     print('pred', pred)
     t1 = time.time()
     fps = 1.0 / (t1 - t0)
@@ -157,6 +159,17 @@ def yolov7_inference( data: StructureBase = Form(...), file: UploadFile = File(.
     return {"detections": pred, "class": names, 'fps': fps}
 
 
+@app.post("/od_inference_as_jpg")
+def yolov7_inference_as_jpg(data: StructureBase = Form(...), file: UploadFile = File(...)):
+    image_rgb = bytes_to_rgbimage(file.file.read())
+    file.file.seek(0, 0)
+    pred, names = _yolov7_inference(image_rgb, data)
+    b_param = bboxBase(detections=pred, class_names=names)
+    dict_r = web_if_draw_bbox(b_param, file)
+    b = base64_jpg_to_bytes(dict_r["img_base64"])
+    return StreamingResponse(io.BytesIO(b), media_type="image/jpg")
+
+
 def replace_model(model_name='yolov7-tiny'):
     global current_model_name
     try:
@@ -172,6 +185,7 @@ def replace_model(model_name='yolov7-tiny'):
         restore_model()
     pass
 
+
 @app.get("/restore_model")
 def restore_model():
     """
@@ -184,6 +198,31 @@ def restore_model():
     t1 = time.time()
     fps = 1.0 / (t1 - t0)
     return {"class": names, 'fps': fps}
+
+
+@app.get("/get_models")
+def get_models():
+    """Get Models that this web api provides.
+
+    Returns:
+        dict: models data include model name and its possible parmeters.
+    """
+    dic_r = {
+        "supported_models":
+            [{"model_name": "yolov7-tiny",
+             "param": [
+                 {"name": "conf_thres", "min": 0, "max": 1},
+                 {"name": "iou_thres", "min": 0, "max": 1},
+
+             ]},
+             {"model_name": "yolov7",
+             "param": [
+                 {"name": "conf_thres", "min": 0, "max": 1},
+                 {"name": "iou_thres", "min": 0, "max": 1},
+             ]}]
+
+    }
+    return dic_r
 
 
 @app.get("/get_class")
