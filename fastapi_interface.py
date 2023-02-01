@@ -85,7 +85,7 @@ def initialize_model():
 
 initialize_model()
 
-app = FastAPI()
+app = FastAPI(title="ObjectDetectionAPI-Yolov7",)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -106,8 +106,9 @@ async def custom_swagger_ui_html():
 
 
 @app.get("/")
-def HelloWorld():
-    return {"Hello": "World"}
+def main_page():
+    return {"name": "object detecion interface for yolov7", 
+            "desc":"Please goto <a>http://localhost:5000/docs</a> or <a>http://localhost:5000/docs2</a> to use."}
 
 
 def _yolov7_inference(image_rgb, data):
